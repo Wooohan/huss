@@ -8,14 +8,15 @@ import { Subscription } from './pages/Subscription';
 import { Landing } from './pages/Landing';
 import { AdminPanel } from './pages/AdminPanel';
 import { ViewState, User, CarrierData } from './types';
-import { Settings } from 'lucide-react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { MOCK_USERS } from './services/mockService';
 import { fetchCarriersFromSupabase } from './services/supabaseClient';
 
-const SettingsPage = () => (
+// Extracted Settings component to keep the main App clean
+const SettingsPage: React.FC = () => (
   <div className="p-8 text-center text-slate-400 flex flex-col items-center justify-center h-full">
     <div className="bg-slate-800 p-6 rounded-full mb-4">
-      <Settings size={48} className="text-indigo-500 animate-spin-slow" />
+      <SettingsIcon size={48} className="text-indigo-500 animate-spin-slow" />
     </div>
     <h2 className="text-2xl font-bold text-white mb-2">Settings</h2>
     <p>User profile and API configuration settings would go here.</p>
@@ -32,21 +33,22 @@ const App: React.FC = () => {
   // Load carriers from Supabase on mount
   useEffect(() => {
     const loadCarriers = async () => {
-      setIsLoadingCarriers(true);
-      const carriers = await fetchCarriersFromSupabase();
-      setAllCarriers(carriers);
-      setIsLoadingCarriers(false);
+      try {
+        setIsLoadingCarriers(true);
+        const carriers = await fetchCarriersFromSupabase();
+        setAllCarriers(carriers || []);
+      } catch (error) {
+        console.error("Failed to fetch carriers:", error);
+      } finally {
+        setIsLoadingCarriers(false);
+      }
     };
     loadCarriers();
   }, []);
 
   const handleLogin = (userData: User) => {
     setUser(userData);
-    if (userData.role === 'admin') {
-      setCurrentView('admin');
-    } else {
-      setCurrentView('dashboard');
-    }
+    setCurrentView(userData.role === 'admin' ? 'admin' : 'dashboard');
   };
 
   const handleLogout = () => {
@@ -55,24 +57,21 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUsage = (count: number) => {
-    if (user) {
-      const updatedUser = {
-        ...user,
-        recordsExtractedToday: user.recordsExtractedToday + count
-      };
-      setUser(updatedUser);
+    if (!user) return;
+    const updatedUser: User = {
+      ...user,
+      recordsExtractedToday: user.recordsExtractedToday + count
+    };
+    setUser(updatedUser);
 
-      // Sync with Mock DB so Admin panel sees the usage
-      const dbIndex = MOCK_USERS.findIndex(u => u.id === user.id);
-      if (dbIndex !== -1) {
-        MOCK_USERS[dbIndex] = updatedUser;
-      }
+    const dbIndex = MOCK_USERS.findIndex(u => u.id === user.id);
+    if (dbIndex !== -1) {
+      MOCK_USERS[dbIndex] = updatedUser;
     }
   };
 
   const handleNewCarriers = (newData: CarrierData[]) => {
     setAllCarriers(prev => {
-      // Prevent duplicates based on MC number
       const existingMcs = new Set(prev.map(c => c.mcNumber));
       const filteredNew = newData.filter(c => !existingMcs.has(c.mcNumber));
       return [...filteredNew, ...prev];
@@ -83,18 +82,15 @@ const App: React.FC = () => {
     setAllCarriers(updatedData);
   };
 
-  // Automated trigger from Live Scraper to Insurance Scraper
   const handleScraperFinish = () => {
     setAutoStartInsurance(true);
     setCurrentView('insurance-scraper');
   };
 
   const handleViewChange = (view: ViewState) => {
-    // Check if user has access to the requested view
     const isAdmin = user?.role === 'admin';
     const adminOnlyViews: ViewState[] = ['scraper', 'insurance-scraper', 'settings', 'admin'];
     
-    // If non-admin tries to access admin-only view, redirect to dashboard
     if (!isAdmin && adminOnlyViews.includes(view)) {
       setCurrentView('dashboard');
       return;
@@ -107,14 +103,11 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    const isAdmin = user?.role === 'admin';
-    const adminOnlyViews: ViewState[] = ['scraper', 'insurance-scraper', 'settings', 'admin'];
+    if (!user) return null;
 
-    // Security check: if non-admin somehow reaches admin-only view, show dashboard
-    if (!isAdmin && adminOnlyViews.includes(currentView)) {
-      return <Dashboard />;
-    }
+    const isAdmin = user.role === 'admin';
 
+    // Loading State for Carrier Database
     if (isLoadingCarriers && currentView === 'carrier-search') {
       return (
         <div className="flex items-center justify-center h-full">
@@ -130,30 +123,36 @@ const App: React.FC = () => {
       case 'dashboard':
         return <Dashboard />;
       case 'scraper':
-        return <Scraper 
-          user={user!} 
-          onUpdateUsage={handleUpdateUsage}
-          onNewCarriers={handleNewCarriers}
-          onUpgrade={() => setCurrentView('subscription')}
-          onFinish={handleScraperFinish}
-        />;
+        return (
+          <Scraper 
+            user={user} 
+            onUpdateUsage={handleUpdateUsage}
+            onNewCarriers={handleNewCarriers}
+            onUpgrade={() => setCurrentView('subscription')}
+            onFinish={handleScraperFinish}
+          />
+        );
       case 'carrier-search':
-        return <CarrierSearch 
-          carriers={allCarriers} 
-          onNavigateToInsurance={() => isAdmin ? setCurrentView('insurance-scraper') : null} 
-        />;
+        return (
+          <CarrierSearch 
+            carriers={allCarriers} 
+            onNavigateToInsurance={() => { if(isAdmin) setCurrentView('insurance-scraper'); }} 
+          />
+        );
       case 'insurance-scraper':
-        return <InsuranceScraper 
-          carriers={allCarriers} 
-          onUpdateCarriers={handleUpdateCarriers} 
-          autoStart={autoStartInsurance}
-        />;
+        return (
+          <InsuranceScraper 
+            carriers={allCarriers} 
+            onUpdateCarriers={handleUpdateCarriers} 
+            autoStart={autoStartInsurance}
+          />
+        );
       case 'subscription':
         return <Subscription />;
       case 'settings':
         return <SettingsPage />;
       case 'admin':
-        return user?.role === 'admin' ? <AdminPanel /> : <Dashboard />;
+        return isAdmin ? <AdminPanel /> : <Dashboard />;
       default:
         return <Dashboard />;
     }
@@ -173,9 +172,7 @@ const App: React.FC = () => {
       />
       
       <main className="flex-1 ml-64 relative bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-20 h-screen overflow-hidden">
-        {/* Top subtle gradient light effect */}
         <div className="absolute top-0 left-0 w-full h-96 bg-indigo-600/10 blur-[100px] pointer-events-none rounded-full -translate-y-1/2"></div>
-        
         {renderContent()}
       </main>
     </div>
