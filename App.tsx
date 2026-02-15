@@ -13,7 +13,7 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import { MOCK_USERS } from './services/mockService';
 import { fetchCarriersFromSupabase } from './services/supabaseClient';
 
-// Extracted Settings component to keep the main App clean
+// Extracted Settings component to keep the main App clean.
 const SettingsPage: React.FC = () => (
   <div className="p-8 text-center text-slate-400 flex flex-col items-center justify-center h-full">
     <div className="bg-slate-800 p-6 rounded-full mb-4">
