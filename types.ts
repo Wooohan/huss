@@ -90,4 +90,11 @@ export interface BlockedIP {
   reason: string;
 }
 
-export type ViewState = 'dashboard' | 'scraper' | 'carrier-search' | 'insurance-scraper' | 'subscription' | 'settings' | 'admin';
+export type ViewState = 'dashboard' | 'scraper' | 'carrier-search' | 'insurance-scraper' | 'subscription' | 'settings' | 'admin' | 'fmcsa-register';
+
+export interface FMCSARegisterEntry {
+  number: string;
+  title: string;
+  decided: string;
+  category: string;
+}
