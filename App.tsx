@@ -7,6 +7,7 @@ import { InsuranceScraper } from './pages/InsuranceScraper';
 import { Subscription } from './pages/Subscription';
 import { Landing } from './pages/Landing';
 import { AdminPanel } from './pages/AdminPanel';
+import { FMCSARegister } from './pages/FMCSARegister';
 import { ViewState, User, CarrierData } from './types';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { MOCK_USERS } from './services/mockService';
@@ -139,6 +140,8 @@ const App: React.FC = () => {
             onNavigateToInsurance={() => { if(isAdmin) setCurrentView('insurance-scraper'); }} 
           />
         );
+      case 'fmcsa-register':
+        return <FMCSARegister />;
       case 'insurance-scraper':
         return (
           <InsuranceScraper 
