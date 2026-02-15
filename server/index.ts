@@ -301,6 +301,171 @@ app.get('/api/scrape/insurance/:dotNumber', async (req: Request, res: Response) 
   }
 });
 
+// Route 4: Scrape FMCSA Register Data
+app.get('/api/fmcsa-register', async (req: Request, res: Response) => {
+  try {
+    // First, we need to get the register page which shows the last 5 days
+    const registerUrl = 'https://li-public.fmcsa.dot.gov/LIVIEW/PKG_register.prc_reg_detail';
+    
+    const response = await axios.get(registerUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+      timeout: 30000,
+    });
+
+    const $ = cheerio.load(response.data);
+    const entries: Array<{ number: string; title: string; decided: string; category: string }> = [];
+    
+    // Find all category sections
+    const categoryHeaders = [
+      'NAME CHANGE',
+      'CERTIFICATE, PERMIT, LICENSE',
+      'CERTIFICATE OF REGISTRATION',
+      'DISMISSAL',
+      'WITHDRAWAL',
+      'REVOCATION',
+      'MISCELLANEOUS',
+      'TRANSFERS',
+      'GRANT DECISION NOTICES'
+    ];
+
+    // Parse the HTML structure - the register uses tables with specific patterns
+    $('table').each((_, table) => {
+      const $table = $(table);
+      
+      // Look for tables that contain register entries
+      $table.find('tr').each((_, row) => {
+        const $row = $(row);
+        const cells = $row.find('td');
+        
+        if (cells.length >= 3) {
+          const number = cleanText($(cells[0]).text());
+          const title = cleanText($(cells[1]).text());
+          const decided = cleanText($(cells[2]).text());
+          
+          // Determine category by looking at preceding headers
+          let category = 'MISCELLANEOUS';
+          const precedingText = $row.prevAll().text();
+          
+          for (const cat of categoryHeaders) {
+            if (precedingText.includes(cat)) {
+              category = cat;
+              break;
+            }
+          }
+          
+          // Validate that this looks like a valid entry
+          if (number && (number.includes('MC-') || number.includes('FF-') || number.includes('MX-')) && title && decided) {
+            entries.push({
+              number,
+              title,
+              decided,
+              category
+            });
+          }
+        }
+      });
+    });
+
+    // Alternative parsing method - look for specific patterns in the HTML
+    if (entries.length === 0) {
+      let currentCategory = 'MISCELLANEOUS';
+      
+      $('body').find('*').each((_, elem) => {
+        const text = $(elem).text().trim();
+        
+        // Check if this is a category header
+        for (const cat of categoryHeaders) {
+          if (text === cat) {
+            currentCategory = cat;
+            return;
+          }
+        }
+        
+        // Look for table rows with Number, Title, Decided pattern
+        if ($(elem).is('tr')) {
+          const cells = $(elem).find('td');
+          if (cells.length >= 3) {
+            const number = cleanText($(cells[0]).text());
+            const title = cleanText($(cells[1]).text());
+            const decided = cleanText($(cells[2]).text());
+            
+            if (number && (number.includes('MC-') || number.includes('FF-') || number.includes('MX-')) && title) {
+              entries.push({
+                number,
+                title,
+                decided: decided || 'N/A',
+                category: currentCategory
+              });
+            }
+          }
+        }
+      });
+    }
+
+    // If still no entries found, try a more aggressive approach
+    if (entries.length === 0) {
+      const bodyText = $('body').text();
+      const lines = bodyText.split('\n');
+      let currentCategory = 'MISCELLANEOUS';
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Check for category headers
+        for (const cat of categoryHeaders) {
+          if (line.includes(cat)) {
+            currentCategory = cat;
+            break;
+          }
+        }
+        
+        // Look for MC/FF numbers
+        const mcMatch = line.match(/(MC-\d+|FF-\d+|MX-\d+)/);
+        if (mcMatch) {
+          const number = mcMatch[1];
+          // Try to extract title and date from the same or next lines
+          const titleMatch = line.match(/(?:MC-\d+|FF-\d+|MX-\d+)\s+(.+?)(?:\d{2}\/\d{2}\/\d{4}|$)/);
+          const dateMatch = line.match(/(\d{2}\/\d{2}\/\d{4})/);
+          
+          if (titleMatch) {
+            entries.push({
+              number,
+              title: titleMatch[1].trim(),
+              decided: dateMatch ? dateMatch[1] : 'N/A',
+              category: currentCategory
+            });
+          }
+        }
+      }
+    }
+
+    // Remove duplicates
+    const uniqueEntries = entries.filter((entry, index, self) =>
+      index === self.findIndex((e) => e.number === entry.number && e.title === entry.title)
+    );
+
+    res.json({
+      success: true,
+      count: uniqueEntries.length,
+      lastUpdated: new Date().toISOString(),
+      entries: uniqueEntries
+    });
+
+  } catch (error: any) {
+    console.error('FMCSA Register scrape error:', error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to scrape FMCSA register data', 
+      details: error.message,
+      entries: []
+    });
+  }
+});
+
 // Health check
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'FMCSA Scraper Backend is running' });
@@ -312,4 +477,5 @@ app.listen(PORT, () => {
   console.log(`   - GET /api/scrape/carrier/:mcNumber`);
   console.log(`   - GET /api/scrape/safety/:dotNumber`);
   console.log(`   - GET /api/scrape/insurance/:dotNumber`);
+  console.log(`   - GET /api/fmcsa-register`);
 });
