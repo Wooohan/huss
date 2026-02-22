@@ -22,6 +22,7 @@ export interface CarrierRecord {
   phone?: string;
   power_units?: string;
   drivers?: string;
+  non_cmv_units?: string;
   physical_address?: string;
   mailing_address?: string;
   date_scraped: string;
@@ -55,6 +56,7 @@ export const saveCarrierToSupabase = async (carrier: any): Promise<{ success: bo
       phone: carrier.phone || null,
       power_units: carrier.powerUnits || null,
       drivers: carrier.drivers || null,
+      non_cmv_units: carrier.nonCmvUnits || null,
       physical_address: carrier.physicalAddress || null,
       mailing_address: carrier.mailingAddress || null,
       date_scraped: carrier.dateScraped,
@@ -90,12 +92,61 @@ export const saveCarrierToSupabase = async (carrier: any): Promise<{ success: bo
   }
 };
 
-export const fetchCarriersFromSupabase = async (): Promise<any[]> => {
+export interface CarrierFilters {
+  mcNumber?: string;
+  dotNumber?: string;
+  legalName?: string;
+  active?: string;
+  state?: string;
+  hasEmail?: string;
+  powerUnitsMin?: number;
+  powerUnitsMax?: number;
+  driversMin?: number;
+  driversMax?: number;
+  limit?: number;
+}
+
+export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): Promise<any[]> => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('carriers')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
+
+    if (filters.mcNumber) {
+      query = query.ilike('mc_number', `%${filters.mcNumber}%`);
+    }
+    if (filters.dotNumber) {
+      query = query.ilike('dot_number', `%${filters.dotNumber}%`);
+    }
+    if (filters.legalName) {
+      query = query.ilike('legal_name', `%${filters.legalName}%`);
+    }
+    if (filters.active === 'true') {
+      query = query.ilike('status', '%AUTHORIZED%').not('status', 'ilike', '%NOT%');
+    } else if (filters.active === 'false') {
+      query = query.or('status.ilike.%NOT%,status.not.ilike.%AUTHORIZED%');
+    }
+    if (filters.state) {
+      query = query.ilike('physical_address', `%${filters.state}%`);
+    }
+    if (filters.hasEmail === 'true') {
+      query = query.not('email', 'is', null);
+    } else if (filters.hasEmail === 'false') {
+      query = query.is('email', null);
+    }
+    
+    // Numeric filters (need to cast or handle carefully if stored as strings)
+    // For now, we'll just do basic filtering if they are strings
+    
+    query = query.order('created_at', { ascending: false });
+    
+    if (filters.limit) {
+      query = query.limit(filters.limit);
+    } else {
+      query = query.limit(200); // Default limit as requested
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Supabase fetch error:', error);
@@ -114,6 +165,7 @@ export const fetchCarriersFromSupabase = async (): Promise<any[]> => {
       phone: record.phone,
       powerUnits: record.power_units,
       drivers: record.drivers,
+      nonCmvUnits: record.non_cmv_units,
       physicalAddress: record.physical_address,
       mailingAddress: record.mailing_address,
       dateScraped: record.date_scraped,
