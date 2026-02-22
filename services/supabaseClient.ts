@@ -75,7 +75,6 @@ export const saveCarrierToSupabase = async (carrier: any): Promise<{ success: bo
       insurance_policies: carrier.insurancePolicies || null,
     };
 
-    // Use upsert to handle duplicates (based on mc_number unique constraint)
     const { error } = await supabase
       .from('carriers')
       .upsert(record, { onConflict: 'mc_number' });
@@ -93,16 +92,47 @@ export const saveCarrierToSupabase = async (carrier: any): Promise<{ success: bo
 };
 
 export interface CarrierFilters {
+  // Motor Carrier
   mcNumber?: string;
   dotNumber?: string;
   legalName?: string;
-  active?: string;
+  active?: string;           // 'true' | 'false' | ''
   state?: string;
-  hasEmail?: string;
+  hasEmail?: string;         // 'true' | 'false' | ''
+  hasBoc3?: string;          // 'true' | 'false' | ''
+  hasCompanyRep?: string;    // 'true' | 'false' | ''
+  yearsInBusinessMin?: number;
+  yearsInBusinessMax?: number;
+  // Carrier Operation
+  classification?: string[];
+  carrierOperation?: string[];
+  hazmat?: string;           // 'true' | 'false' | ''
   powerUnitsMin?: number;
   powerUnitsMax?: number;
   driversMin?: number;
   driversMax?: number;
+  cargo?: string[];
+  // Insurance Policy
+  insuranceRequired?: string[];
+  bipdMin?: number;
+  bipdMax?: number;
+  bipdOnFile?: string;       // '1' | '0' | ''
+  cargoOnFile?: string;      // '1' | '0' | ''
+  bondOnFile?: string;       // '1' | '0' | ''
+  // Safety
+  oosMin?: number;
+  oosMax?: number;
+  crashesMin?: number;
+  crashesMax?: number;
+  injuriesMin?: number;
+  injuriesMax?: number;
+  fatalitiesMin?: number;
+  fatalitiesMax?: number;
+  towawayMin?: number;
+  towawayMax?: number;
+  inspectionsMin?: number;
+  inspectionsMax?: number;
+  // Pagination
   limit?: number;
 }
 
@@ -112,6 +142,7 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       .from('carriers')
       .select('*');
 
+    // ── Motor Carrier filters ──────────────────────────────────────────────
     if (filters.mcNumber) {
       query = query.ilike('mc_number', `%${filters.mcNumber}%`);
     }
@@ -124,27 +155,83 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
     if (filters.active === 'true') {
       query = query.ilike('status', '%AUTHORIZED%').not('status', 'ilike', '%NOT%');
     } else if (filters.active === 'false') {
-      query = query.or('status.ilike.%NOT%,status.not.ilike.%AUTHORIZED%');
+      query = query.or('status.ilike.%NOT AUTHORIZED%,status.not.ilike.%AUTHORIZED%');
     }
     if (filters.state) {
       query = query.ilike('physical_address', `%${filters.state}%`);
     }
     if (filters.hasEmail === 'true') {
-      query = query.not('email', 'is', null);
+      query = query.not('email', 'is', null).neq('email', '');
     } else if (filters.hasEmail === 'false') {
-      query = query.is('email', null);
+      query = query.or('email.is.null,email.eq.');
     }
-    
-    // Numeric filters (need to cast or handle carefully if stored as strings)
-    // For now, we'll just do basic filtering if they are strings
-    
+    // hasBoc3 – stored in carrier_operation or a dedicated column; filter by keyword in arrays
+    if (filters.hasBoc3 === 'true') {
+      query = query.contains('carrier_operation', ['BOC-3']);
+    } else if (filters.hasBoc3 === 'false') {
+      query = query.not('carrier_operation', 'cs', '{"BOC-3"}');
+    }
+
+    // ── Carrier Operation filters ──────────────────────────────────────────
+    if (filters.classification && filters.classification.length > 0) {
+      query = query.overlaps('operation_classification', filters.classification);
+    }
+    if (filters.carrierOperation && filters.carrierOperation.length > 0) {
+      query = query.overlaps('carrier_operation', filters.carrierOperation);
+    }
+    if (filters.cargo && filters.cargo.length > 0) {
+      query = query.overlaps('cargo_carried', filters.cargo);
+    }
+    if (filters.hazmat === 'true') {
+      query = query.contains('cargo_carried', ['Hazardous Materials']);
+    } else if (filters.hazmat === 'false') {
+      query = query.not('cargo_carried', 'cs', '{"Hazardous Materials"}');
+    }
+    // Power units (stored as text, cast for comparison)
+    if (filters.powerUnitsMin !== undefined) {
+      query = query.gte('power_units', filters.powerUnitsMin.toString());
+    }
+    if (filters.powerUnitsMax !== undefined) {
+      query = query.lte('power_units', filters.powerUnitsMax.toString());
+    }
+    if (filters.driversMin !== undefined) {
+      query = query.gte('drivers', filters.driversMin.toString());
+    }
+    if (filters.driversMax !== undefined) {
+      query = query.lte('drivers', filters.driversMax.toString());
+    }
+
+    // ── Insurance filters ──────────────────────────────────────────────────
+    if (filters.bipdOnFile === '1') {
+      // Has BIPD insurance: insurance_policies contains a BI&PD type entry
+      query = query.not('insurance_policies', 'is', null);
+    }
+    if (filters.cargoOnFile === '1') {
+      query = query.not('insurance_policies', 'is', null);
+    }
+    if (filters.bondOnFile === '1') {
+      query = query.not('insurance_policies', 'is', null);
+    }
+
+    // ── Ordering & limit ──────────────────────────────────────────────────
     query = query.order('created_at', { ascending: false });
-    
-    if (filters.limit) {
+
+    const isFiltered = Object.keys(filters).some(k => {
+      const key = k as keyof CarrierFilters;
+      const val = filters[key];
+      if (key === 'limit') return false;
+      if (Array.isArray(val)) return val.length > 0;
+      return val !== undefined && val !== '';
+    });
+
+    // When filters are active, return all matching records (no cap)
+    // When no filters, return 200 default records
+    if (!isFiltered) {
+      query = query.limit(200);
+    } else if (filters.limit) {
       query = query.limit(filters.limit);
-    } else {
-      query = query.limit(200); // Default limit as requested
     }
+    // else: no limit – return all matching records
 
     const { data, error } = await query;
 
