@@ -6,18 +6,52 @@ import { downloadCSV } from '../services/mockService';
 
 interface CarrierSearchProps {
   carriers: CarrierData[];
+  onSearch: (filters: any) => void;
+  isLoading: boolean;
   onNavigateToInsurance: () => void;
 }
 
-export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onNavigateToInsurance }) => {
+export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onSearch, isLoading, onNavigateToInsurance }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDot, setSelectedDot] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    active: '',
+    state: '',
+    dot: '',
+    mc: '',
+    hasEmail: '',
+    hasBoc3: '',
+    hasCompanyRep: '',
+    powerUnitsMin: '',
+    powerUnitsMax: '',
+    driversMin: '',
+    driversMax: '',
+  });
 
-  const filteredCarriers = carriers.filter(c => 
-    c.mcNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.legalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.dotNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const applyFilters = () => {
+    onSearch({
+      mcNumber: filters.mc || searchTerm,
+      dotNumber: filters.dot,
+      legalName: searchTerm,
+      active: filters.active,
+      state: filters.state,
+      hasEmail: filters.hasEmail,
+      powerUnitsMin: filters.powerUnitsMin ? parseInt(filters.powerUnitsMin) : undefined,
+      powerUnitsMax: filters.powerUnitsMax ? parseInt(filters.powerUnitsMax) : undefined,
+      driversMin: filters.driversMin ? parseInt(filters.driversMin) : undefined,
+      driversMax: filters.driversMax ? parseInt(filters.driversMax) : undefined,
+    });
+  };
+
+  const filteredCarriers = carriers; // Data is now filtered on the backend
 
   // Deriving the selected carrier reactively from the props list
   const selectedCarrier = selectedDot ? carriers.find(c => c.dotNumber === selectedDot) : null;
@@ -47,19 +81,157 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onNaviga
         </div>
       </div>
 
-      {/* Main Search Bar */}
-      <div className="mb-6 relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-          <Search size={20} />
+      {/* Main Search Bar & Filter Toggle */}
+      <div className="flex gap-4 mb-6">
+        <div className="flex-1 relative group">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+            <Search size={20} />
+          </div>
+          <input
+            type="text"
+            placeholder="Search by Business Name or MC#..."
+            className="w-full bg-slate-850/80 border border-slate-700/50 rounded-2xl pl-12 pr-6 py-3.5 text-white text-base focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-xl"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+          />
         </div>
-        <input
-          type="text"
-          placeholder="Search by MC#, DOT#, or Business Name..."
-          className="w-full bg-slate-850/80 border border-slate-700/50 rounded-2xl pl-12 pr-6 py-3.5 text-white text-base focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-xl"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <button 
+          onClick={() => setShowFilters(!showFilters)}
+          className={`px-6 py-3.5 rounded-2xl font-bold transition-all flex items-center gap-2 border ${showFilters ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}
+        >
+          <Zap size={20} className={showFilters ? 'fill-white' : ''} />
+          {showFilters ? 'Hide Filters' : 'Advanced Filters'}
+        </button>
+        <button 
+          onClick={applyFilters}
+          disabled={isLoading}
+          className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+        >
+          {isLoading ? 'Searching...' : 'Search'}
+        </button>
       </div>
+
+      {/* Advanced Filter Panel */}
+      {showFilters && (
+        <div className="mb-8 p-6 bg-slate-900/60 border border-slate-700/50 rounded-3xl animate-in slide-in-from-top-4 duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Motor Carrier Group */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                <Truck size={14} /> Motor Carrier
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Active Status</label>
+                  <select name="active" value={filters.active} onChange={handleFilterChange} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">State</label>
+                  <input type="text" name="state" value={filters.state} onChange={handleFilterChange} placeholder="e.g. GA, TX" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">DOT Number</label>
+                  <input type="text" name="dot" value={filters.dot} onChange={handleFilterChange} placeholder="USDOT#" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">MC Number</label>
+                  <input type="text" name="mc" value={filters.mc} onChange={handleFilterChange} placeholder="MC#" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                </div>
+              </div>
+            </div>
+
+            {/* Carrier Operation Group */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                <Activity size={14} /> Carrier Operation
+              </h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Power Units (Min)</label>
+                    <input type="number" name="powerUnitsMin" value={filters.powerUnitsMin} onChange={handleFilterChange} placeholder="Min" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Power Units (Max)</label>
+                    <input type="number" name="powerUnitsMax" value={filters.powerUnitsMax} onChange={handleFilterChange} placeholder="Max" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Drivers (Min)</label>
+                    <input type="number" name="driversMin" value={filters.driversMin} onChange={handleFilterChange} placeholder="Min" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Drivers (Max)</label>
+                    <input type="number" name="driversMax" value={filters.driversMax} onChange={handleFilterChange} placeholder="Max" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Has Email</label>
+                  <select name="hasEmail" value={filters.hasEmail} onChange={handleFilterChange} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Insurance Group */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                <Shield size={14} /> Insurance
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Has BOC-3</label>
+                  <select name="hasBoc3" value={filters.hasBoc3} onChange={handleFilterChange} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Company Rep. Available</label>
+                  <select name="hasCompanyRep" value={filters.hasCompanyRep} onChange={handleFilterChange} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col justify-end space-y-3">
+              <button 
+                onClick={() => {
+                  setFilters({
+                    active: '', state: '', dot: '', mc: '', hasEmail: '', hasBoc3: '', hasCompanyRep: '',
+                    powerUnitsMin: '', powerUnitsMax: '', driversMin: '', driversMax: '',
+                  });
+                  setSearchTerm('');
+                  onSearch({});
+                }}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-all border border-slate-700"
+              >
+                Reset All
+              </button>
+              <button 
+                onClick={applyFilters}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-indigo-500/20"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Table Container */}
       <div className="flex-1 bg-slate-900/40 border border-slate-700/50 rounded-3xl overflow-hidden flex flex-col shadow-inner">
@@ -239,6 +411,26 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onNaviga
 
                     <div className={`w-full py-4 rounded-2xl flex items-center justify-center font-black tracking-widest text-xs border-2 ${selectedCarrier.cargoCarried.some(c => c.toLowerCase().includes('haz')) ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                        {selectedCarrier.cargoCarried.some(c => c.toLowerCase().includes('haz')) ? 'HAZMAT INDICATOR: YES' : 'HAZMAT INDICATOR: NON-HAZMAT'}
+                    </div>
+
+                    <div className="h-px bg-slate-800/50 my-2" />
+
+                    <div>
+                       <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Fleet Information</h5>
+                       <div className="grid grid-cols-3 gap-3">
+                          <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                             <span className="text-[9px] text-slate-500 font-black uppercase mb-1">Power Units</span>
+                             <span className="text-lg font-black text-white">{selectedCarrier.powerUnits || '0'}</span>
+                          </div>
+                          <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                             <span className="text-[9px] text-slate-500 font-black uppercase mb-1">Drivers</span>
+                             <span className="text-lg font-black text-white">{selectedCarrier.drivers || '0'}</span>
+                          </div>
+                          <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                             <span className="text-[9px] text-slate-500 font-black uppercase mb-1">Non-CMV</span>
+                             <span className="text-lg font-black text-white">{selectedCarrier.nonCmvUnits || '0'}</span>
+                          </div>
+                       </div>
                     </div>
                   </div>
                 </div>
