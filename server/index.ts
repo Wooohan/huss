@@ -61,12 +61,19 @@ app.get('/api/scrape/carrier/:mcNumber', async (req: Request, res: Response) => 
     // Helper to find value by label
     const findValueByLabel = (label: string): string => {
       let value = '';
-      $('th').each((_, el) => {
-        const thText = cleanText($(el).text());
-        if (thText.includes(label)) {
+      $('th, td').each((_, el) => {
+        const text = cleanText($(el).text());
+        if (text === label || text.includes(label)) {
           const nextTd = $(el).next('td');
-          value = cleanText(nextTd.text());
-          return false; // break
+          if (nextTd.length) {
+            // For address fields, we want to preserve line breaks as spaces
+            if (label.includes('Address')) {
+              value = cleanText(nextTd.html()?.replace(/<br\s*\/?>/gi, ' ') || '');
+            } else {
+              value = cleanText(nextTd.text());
+            }
+            return false; // break
+          }
         }
       });
       return value;
@@ -95,6 +102,7 @@ app.get('/api/scrape/carrier/:mcNumber', async (req: Request, res: Response) => 
       status: findValueByLabel('Operating Authority Status:'),
       phone: findValueByLabel('Phone:'),
       powerUnits: findValueByLabel('Power Units:'),
+      nonCmvUnits: findValueByLabel('Non-CMV Units:'),
       drivers: findValueByLabel('Drivers:'),
       physicalAddress: findValueByLabel('Physical Address:'),
       mailingAddress: findValueByLabel('Mailing Address:'),
