@@ -66,9 +66,25 @@ app.get('/api/scrape/carrier/:mcNumber', async (req: Request, res: Response) => 
         if (text === label || text.includes(label)) {
           const nextTd = $(el).next('td');
           if (nextTd.length) {
-            // For address fields, we want to preserve line breaks as spaces
             if (label.includes('Address')) {
-              value = cleanText(nextTd.html()?.replace(/<br\s*\/?>/gi, ' ') || '');
+              // Collect all text nodes and br-separated parts to build full address
+              const parts: string[] = [];
+              nextTd.contents().each((_, node) => {
+                if (node.type === 'text') {
+                  const t = cleanText($(node).text());
+                  if (t) parts.push(t);
+                } else if (node.type === 'tag' && (node as any).tagName?.toLowerCase() === 'br') {
+                  // br acts as separator, already handled by collecting parts
+                } else {
+                  const t = cleanText($(node).text());
+                  if (t) parts.push(t);
+                }
+              });
+              // Join parts: first part is street, rest is city/state/zip
+              value = parts.filter(Boolean).join(', ');
+              if (!value) {
+                value = cleanText(nextTd.html()?.replace(/<br\s*\/?>/gi, ', ') || '');
+              }
             } else {
               value = cleanText(nextTd.text());
             }
