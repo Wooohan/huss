@@ -1,390 +1,262 @@
-import { useState, useEffect, useCallback } from 'react';
-import { client } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { toast } from 'sonner';
-import { RefreshCw, Search, Database, Calendar, ArrowLeft, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { FileText, RefreshCw, Calendar, Search, Filter, ChevronDown, ExternalLink, AlertCircle } from 'lucide-react';
 
-interface FmcsaRecord {
-  id: number;
-  docket_number: string;
-  carrier_info: string;
-  published_date: string | null;
+interface FMCSARegisterEntry {
+  number: string;
+  title: string;
+  decided: string;
   category: string;
-  scrape_date: string | null;
-  register_date: string | null;
 }
 
-interface DateOption {
-  fmcsa_date: string;
-  label: string;
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  'NAME CHANGE': 'bg-blue-100 text-blue-800 border-blue-200',
-  'CERTIFICATE, PERMIT, LICENSE': 'bg-green-100 text-green-800 border-green-200',
-  'CERTIFICATE OF REGISTRATION': 'bg-purple-100 text-purple-800 border-purple-200',
-  'DISMISSAL': 'bg-red-100 text-red-800 border-red-200',
-  'WITHDRAWAL': 'bg-orange-100 text-orange-800 border-orange-200',
-  'REVOCATION': 'bg-rose-100 text-rose-800 border-rose-200',
-  'MISCELLANEOUS': 'bg-gray-100 text-gray-800 border-gray-200',
-  'TRANSFERS': 'bg-teal-100 text-teal-800 border-teal-200',
-  'GRANT DECISION NOTICES': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  'UNKNOWN': 'bg-slate-100 text-slate-800 border-slate-200',
-};
-
-export default function FmcsaRegister() {
-  const navigate = useNavigate();
-  const [records, setRecords] = useState<FmcsaRecord[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [availableDates, setAvailableDates] = useState<DateOption[]>([]);
-  const [storedDates, setStoredDates] = useState<string[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+export const FMCSARegister: React.FC = () => {
+  const [registerData, setRegisterData] = useState<FMCSARegisterEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isScraping, setIsScraping] = useState(false);
-  const [isLoadingDates, setIsLoadingDates] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState<string>('');
 
-  // Fetch available dates from FMCSA
-  const fetchAvailableDates = useCallback(async () => {
-    setIsLoadingDates(true);
-    try {
-      const response = await client.apiCall.invoke({
-        url: '/api/v1/fmcsa/dates',
-        method: 'GET',
-        data: {},
-      });
-      const dates = response.data?.dates || [];
-      setAvailableDates(dates);
+  const categories = [
+    'NAME CHANGE',
+    'CERTIFICATE, PERMIT, LICENSE',
+    'CERTIFICATE OF REGISTRATION',
+    'DISMISSAL',
+    'WITHDRAWAL',
+    'REVOCATION',
+    'MISCELLANEOUS',
+    'TRANSFERS',
+    'GRANT DECISION NOTICES'
+  ];
 
-      // Also fetch stored dates
-      const storedResp = await client.apiCall.invoke({
-        url: '/api/v1/fmcsa/stored-dates',
-        method: 'GET',
-        data: {},
-      });
-      const stored = storedResp.data?.dates || [];
-      setStoredDates(stored);
+  useEffect(() => {
+    fetchRegisterData();
+  }, []);
 
-      // Auto-select the first available date
-      if (dates.length > 0 && !selectedDate) {
-        setSelectedDate(dates[0].fmcsa_date);
-      }
-    } catch (err: any) {
-      console.error('Error fetching dates:', err);
-      toast.error('Failed to fetch available dates');
-    } finally {
-      setIsLoadingDates(false);
-    }
-  }, [selectedDate]);
-
-  // Fetch records from database
-  const fetchRecords = useCallback(async () => {
-    if (!selectedDate) return;
-
+  const fetchRegisterData = async () => {
     setIsLoading(true);
+    setError('');
+    
     try {
-      const params: Record<string, string> = {
-        register_date: selectedDate,
-        limit: '1000',
-      };
-      if (selectedCategory && selectedCategory !== 'ALL') {
-        params.category = selectedCategory;
+      // Call the backend API endpoint
+      const response = await fetch('http://localhost:3001/api/fmcsa-register');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch register data');
       }
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
+      
+      const data = await response.json();
+      
+      if (data.success && data.entries && data.entries.length > 0) {
+        setRegisterData(data.entries);
+        setLastUpdated(new Date().toLocaleString());
+      } else {
+        // If no entries returned, load mock data
+        throw new Error('No entries found in response');
       }
-
-      const response = await client.apiCall.invoke({
-        url: '/api/v1/fmcsa/records',
-        method: 'GET',
-        data: params,
-      });
-
-      const data = response.data;
-      setRecords(data?.items || []);
-      setTotalRecords(data?.total || 0);
-      setCategories(data?.categories || []);
-    } catch (err: any) {
-      console.error('Error fetching records:', err);
-      setRecords([]);
-      setTotalRecords(0);
+    } catch (err) {
+      console.error('Error fetching FMCSA register:', err);
+      setError('Unable to fetch live register data. Displaying sample data. Make sure the backend server is running on port 3001.');
+      
+      // Load mock data for demonstration
+      loadMockData();
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, selectedCategory, searchQuery]);
-
-  // Scrape fresh data from FMCSA
-  const handleScrape = async () => {
-    if (!selectedDate) {
-      toast.error('Please select a date first');
-      return;
-    }
-
-    setIsScraping(true);
-    try {
-      const response = await client.apiCall.invoke({
-        url: '/api/v1/fmcsa/scrape',
-        method: 'POST',
-        data: { pd_date: selectedDate },
-      });
-
-      const result = response.data;
-      if (result.records_count > 0) {
-        toast.success(result.message);
-        // Refresh stored dates and records
-        const storedResp = await client.apiCall.invoke({
-          url: '/api/v1/fmcsa/stored-dates',
-          method: 'GET',
-          data: {},
-        });
-        setStoredDates(storedResp.data?.dates || []);
-        await fetchRecords();
-      } else {
-        toast.warning(result.message);
-      }
-    } catch (err: any) {
-      const detail = err?.data?.detail || err?.response?.data?.detail || err?.message || 'Scrape failed';
-      toast.error(detail);
-    } finally {
-      setIsScraping(false);
-    }
   };
 
-  useEffect(() => {
-    fetchAvailableDates();
-  }, []);
+  const loadMockData = () => {
+    const mockData: FMCSARegisterEntry[] = [
+      { number: 'FF-40152', title: 'PFL TRANSPORTATION SOLUTIONS INC - SURREY, BC, CA', decided: '02/10/2026', category: 'NAME CHANGE' },
+      { number: 'MC-19745', title: 'MACON SIX TRANSPORT LLC - LANSING, IL', decided: '02/10/2026', category: 'NAME CHANGE' },
+      { number: 'MC-40152', title: 'FD&H TRANSPORTATION SERVICES - SPRING, TX', decided: '02/10/2026', category: 'NAME CHANGE' },
+      { number: 'MC-349801', title: 'PROFESSIONAL AUTOMOTIVE RELOCATION SERVIC - GAINESVILLE, VA', decided: '02/10/2026', category: 'NAME CHANGE' },
+      { number: 'FF-70665', title: 'ELITE LOGIX USA CORP - TAMPA, FL', decided: '01/28/2026', category: 'CERTIFICATE, PERMIT, LICENSE' },
+      { number: 'MC-102136', title: 'ANTONIO HALL MANAGEMENT LLC - WINDSOR, CT', decided: '01/27/2026', category: 'CERTIFICATE, PERMIT, LICENSE' },
+      { number: 'MC-755001', title: 'TCS GROUP INC - MISSISSAUGA, ON, CA', decided: '01/28/2026', category: 'CERTIFICATE, PERMIT, LICENSE' },
+      { number: 'MC-779664', title: 'BUME FARMS TRANSPORT, LLC - SOUTH VIENNA, OH', decided: '12/17/2025', category: 'CERTIFICATE, PERMIT, LICENSE' },
+      { number: 'MC-1129516', title: 'PROSPERITY ENTERPRISE SERVICES LLC - ECORSE, MI', decided: '01/28/2026', category: 'CERTIFICATE, PERMIT, LICENSE' },
+      { number: 'MC-1285840', title: 'JBGB TRANSPORT LLC - LYNDONVILLE, VT', decided: '01/30/2026', category: 'CERTIFICATE, PERMIT, LICENSE' },
+    ];
+    
+    setRegisterData(mockData);
+    setLastUpdated(new Date().toLocaleString());
+  };
 
-  useEffect(() => {
-    if (selectedDate) {
-      fetchRecords();
-    }
-  }, [selectedDate, selectedCategory, searchQuery]);
+  const filteredData = registerData.filter(entry => {
+    const matchesCategory = selectedCategory === 'all' || entry.category === selectedCategory;
+    const matchesSearch = entry.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         entry.number.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-  const isDateStored = storedDates.includes(selectedDate);
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      'NAME CHANGE': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      'CERTIFICATE, PERMIT, LICENSE': 'bg-green-500/20 text-green-300 border-green-500/30',
+      'CERTIFICATE OF REGISTRATION': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+      'DISMISSAL': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      'WITHDRAWAL': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+      'REVOCATION': 'bg-red-500/20 text-red-300 border-red-500/30',
+      'MISCELLANEOUS': 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+      'TRANSFERS': 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+      'GRANT DECISION NOTICES': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    };
+    return colors[category] || 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-[#1E3A5F] text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/10"
-                onClick={() => navigate('/')}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">FMCSA Register</h1>
-                <p className="text-blue-200 text-sm mt-0.5">
-                  Federal Motor Carrier Safety Administration — Daily Register Data
-                </p>
-              </div>
+    <div className="p-8 h-screen flex flex-col overflow-hidden">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">FMCSA Register</h1>
+          <p className="text-slate-400">Daily Summary of Motor Carrier Applications and Decisions</p>
+        </div>
+        <button
+          onClick={fetchRegisterData}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+          Refresh Data
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="text-red-400" size={20} />
+          <p className="text-red-300 text-sm">{error}</p>
+        </div>
+      )}
+
+      <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+              <Calendar className="text-indigo-400" size={20} />
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-white border-white/30 text-xs">
-                <Database className="h-3 w-3 mr-1" />
-                {totalRecords} records
-              </Badge>
+            <div>
+              <p className="text-xs text-slate-400">Last Updated</p>
+              <p className="text-white font-semibold">{lastUpdated || 'Not yet loaded'}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+              <FileText className="text-green-400" size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Total Entries</p>
+              <p className="text-white font-semibold">{registerData.length}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+              <Filter className="text-purple-400" size={20} />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Filtered Results</p>
+              <p className="text-white font-semibold">{filteredData.length}</p>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Controls */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4 items-end">
-              {/* Date Selector */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  Register Date
-                </label>
-                <Select
-                  value={selectedDate}
-                  onValueChange={setSelectedDate}
-                  disabled={isLoadingDates}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isLoadingDates ? 'Loading dates...' : 'Select a date'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDates.map((d) => (
-                      <SelectItem key={d.fmcsa_date} value={d.fmcsa_date}>
-                        {d.label}
-                        {storedDates.includes(d.fmcsa_date) && ' ✓'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search by MC/FF number or company name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
 
-              {/* Search */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                  <Search className="h-4 w-4 inline mr-1" />
-                  Search
-                </label>
-                <Input
-                  placeholder="Search docket or carrier name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-10 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+          </div>
+        </div>
+      </div>
 
-              {/* Scrape Button */}
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleScrape}
-                  disabled={isScraping || !selectedDate}
-                  className="bg-[#1E3A5F] hover:bg-[#2a4f7a] text-white"
-                >
-                  {isScraping ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  {isScraping ? 'Scraping...' : 'Fetch Data'}
-                </Button>
+      <div className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex justify-between items-center">
+          <h3 className="font-bold text-white">Register Entries</h3>
+          <a
+            href="https://li-public.fmcsa.dot.gov/LIVIEW/pkg_menu.prc_menu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            View on FMCSA
+            <ExternalLink size={14} />
+          </a>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+                <p className="text-slate-400">Loading register data...</p>
               </div>
             </div>
-
-            {/* Status indicator */}
-            {selectedDate && (
-              <div className="mt-3 flex items-center gap-2">
-                {isDateStored ? (
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    ✓ Data available in database
-                  </Badge>
-                ) : (
-                  <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                    ⚠ No data stored — click "Fetch Data" to scrape from FMCSA
-                  </Badge>
-                )}
+          ) : filteredData.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-slate-400">
+                <FileText size={48} className="mx-auto mb-4 opacity-50" />
+                <p>No entries found matching your criteria</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-900 text-slate-200 sticky top-0">
+                <tr>
+                  <th className="p-4 font-medium text-xs uppercase tracking-wider">Number</th>
+                  <th className="p-4 font-medium text-xs uppercase tracking-wider">Title</th>
+                  <th className="p-4 font-medium text-xs uppercase tracking-wider">Category</th>
+                  <th className="p-4 font-medium text-xs uppercase tracking-wider">Decided</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {filteredData.map((entry, index) => (
+                  <tr key={index} className="hover:bg-slate-700/50 transition-colors text-slate-300">
+                    <td className="p-4 font-mono text-white font-semibold">{entry.number}</td>
+                    <td className="p-4">{entry.title}</td>
+                    <td className="p-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getCategoryColor(entry.category)}`}>
+                        {entry.category}
+                      </span>
+                    </td>
+                    <td className="p-4 font-mono">{entry.decided}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
 
-        {/* Category Tabs & Records Table */}
-        {isLoading ? (
-          <Card>
-            <CardContent className="py-20 text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1E3A5F]" />
-              <p className="mt-4 text-gray-500">Loading records...</p>
-            </CardContent>
-          </Card>
-        ) : records.length === 0 ? (
-          <Card>
-            <CardContent className="py-20 text-center">
-              <Database className="h-12 w-12 mx-auto text-gray-300" />
-              <h3 className="mt-4 text-lg font-medium text-gray-600">No Records Found</h3>
-              <p className="mt-2 text-gray-400 max-w-md mx-auto">
-                {selectedDate
-                  ? `No data for ${selectedDate}. Click "Fetch Data" to scrape live data from FMCSA.`
-                  : 'Select a date and click "Fetch Data" to get started.'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Tabs
-            value={selectedCategory}
-            onValueChange={setSelectedCategory}
-            className="space-y-4"
-          >
-            <TabsList className="flex flex-wrap h-auto gap-1 bg-white border p-1">
-              <TabsTrigger value="ALL" className="text-xs">
-                All ({totalRecords})
-              </TabsTrigger>
-              {categories.map((cat) => {
-                const count = records.filter(
-                  (r) => selectedCategory === 'ALL' || r.category === cat
-                ).length;
-                return (
-                  <TabsTrigger key={cat} value={cat} className="text-xs">
-                    {cat.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span>
-                    {selectedCategory === 'ALL' ? 'All Categories' : selectedCategory}
-                  </span>
-                  <span className="text-sm font-normal text-gray-500">
-                    Showing {records.length} of {totalRecords} records
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-slate-50">
-                        <TableHead className="w-[140px] font-semibold">Docket #</TableHead>
-                        <TableHead className="font-semibold">Carrier Information</TableHead>
-                        <TableHead className="w-[200px] font-semibold">Category</TableHead>
-                        <TableHead className="w-[120px] font-semibold">Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {records.map((record) => (
-                        <TableRow key={record.id} className="hover:bg-blue-50/50">
-                          <TableCell className="font-mono text-sm font-medium text-[#1E3A5F]">
-                            {record.docket_number}
-                          </TableCell>
-                          <TableCell className="text-sm">{record.carrier_info}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${CATEGORY_COLORS[record.category] || CATEGORY_COLORS['UNKNOWN']}`}
-                            >
-                              {record.category}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            {record.published_date || '—'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </Tabs>
-        )}
-      </main>
+      <div className="mt-4 bg-slate-800/30 border border-slate-700/50 rounded-xl p-4">
+        <p className="text-xs text-slate-400 leading-relaxed">
+          <strong className="text-slate-300">Note:</strong> This data is fetched from the FMCSA Register and updates daily. 
+          The register contains decisions and notices released by the Federal Motor Carrier Safety Administration. 
+          For the most current information, please visit the official FMCSA website.
+        </p>
+      </div>
     </div>
   );
-}
+};
