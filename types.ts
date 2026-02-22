@@ -29,6 +29,7 @@ export interface CarrierData {
   email: string;
   phone: string;
   powerUnits: string;
+  nonCmvUnits?: string;
   drivers: string;
   physicalAddress: string;
   mailingAddress: string;
