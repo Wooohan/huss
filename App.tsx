@@ -11,7 +11,7 @@ import { FMCSARegister } from './pages/FMCSARegister';
 import { ViewState, User, CarrierData } from './types';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { MOCK_USERS } from './services/mockService';
-import { fetchCarriersFromSupabase } from './services/supabaseClient';
+import { fetchCarriersFromSupabase, CarrierFilters } from './services/supabaseClient';
 
 // Extracted Settings component to keep the main App clean.
 const SettingsPage: React.FC = () => (
@@ -31,12 +31,12 @@ const App: React.FC = () => {
   const [allCarriers, setAllCarriers] = useState<CarrierData[]>([]);
   const [isLoadingCarriers, setIsLoadingCarriers] = useState(false);
 
-  // Load carriers from Supabase on mount
+  // Load default 200 carriers from Supabase on mount
   useEffect(() => {
     const loadCarriers = async () => {
       try {
         setIsLoadingCarriers(true);
-        const carriers = await fetchCarriersFromSupabase();
+        const carriers = await fetchCarriersFromSupabase({});
         setAllCarriers(carriers || []);
       } catch (error) {
         console.error("Failed to fetch carriers:", error);
@@ -46,6 +46,18 @@ const App: React.FC = () => {
     };
     loadCarriers();
   }, []);
+
+  const handleCarrierSearch = async (filters: CarrierFilters) => {
+    try {
+      setIsLoadingCarriers(true);
+      const carriers = await fetchCarriersFromSupabase(filters);
+      setAllCarriers(carriers || []);
+    } catch (error) {
+      console.error("Failed to fetch carriers with filters:", error);
+    } finally {
+      setIsLoadingCarriers(false);
+    }
+  };
 
   const handleLogin = (userData: User) => {
     setUser(userData);
@@ -108,18 +120,6 @@ const App: React.FC = () => {
 
     const isAdmin = user.role === 'admin';
 
-    // Loading State for Carrier Database
-    if (isLoadingCarriers && currentView === 'carrier-search') {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-            <p className="text-slate-400">Loading carriers from database...</p>
-          </div>
-        </div>
-      );
-    }
-
     switch (currentView) {
       case 'dashboard':
         return <Dashboard />;
@@ -136,7 +136,9 @@ const App: React.FC = () => {
       case 'carrier-search':
         return (
           <CarrierSearch 
-            carriers={allCarriers} 
+            carriers={allCarriers}
+            onSearch={handleCarrierSearch}
+            isLoading={isLoadingCarriers}
             onNavigateToInsurance={() => { if(isAdmin) setCurrentView('insurance-scraper'); }} 
           />
         );
