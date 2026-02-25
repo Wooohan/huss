@@ -4,7 +4,8 @@ import { fetchCarrierFromBackend, fetchSafetyFromBackend, fetchInsuranceFromBack
 // === HELPER FUNCTIONS ===
 const cleanText = (text: string | null | undefined): string => {
   if (!text) return '';
-  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  // FIX: Replace newlines with spaces so the full address stays on one line in your CSV
+  return text.replace(/\u00a0/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
 const cfDecodeEmail = (encoded: string): string => {
@@ -26,6 +27,15 @@ const findValueByLabel = (doc: Document, label: string): string => {
   const targetTh = ths.find(th => cleanText(th.textContent).includes(label));
   if (targetTh && targetTh.nextElementSibling) {
     const nextTd = targetTh.nextElementSibling;
+    
+    // FIX FOR ADDRESS & VERCEL BUILD:
+    // 1. Cast to HTMLElement to allow access to .innerText (fixing the build error)
+    // 2. Use .innerText instead of childNodes[0] to grab text after the <br> tag (fixing the missing city/zip)
+    if (nextTd instanceof HTMLElement) {
+      return cleanText(nextTd.innerText);
+    }
+    
+    // Fallback if not an HTMLElement
     const val = nextTd.childNodes[0]?.textContent || nextTd.textContent;
     return cleanText(val);
   }
