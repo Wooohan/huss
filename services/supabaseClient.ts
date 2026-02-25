@@ -142,6 +142,23 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       .from('carriers')
       .select('*');
 
+    const isFiltered = Object.keys(filters).some(k => {
+      const key = k as keyof CarrierFilters;
+      const val = filters[key];
+      if (key === 'limit') return false;
+      if (Array.isArray(val)) return val.length > 0;
+      return val !== undefined && val !== '';
+    });
+
+    // If searching/filtering, exclude records with null values in key fields
+    if (isFiltered) {
+      query = query
+        .not('operation_classification', 'is', null)
+        .not('carrier_operation', 'is', null)
+        .not('cargo_carried', 'is', null)
+        .not('insurance_policies', 'is', null);
+    }
+
     // ── Motor Carrier filters ──────────────────────────────────────────────
     if (filters.mcNumber) {
       query = query.ilike('mc_number', `%${filters.mcNumber}%`);
@@ -158,7 +175,10 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       query = query.or('status.ilike.%NOT AUTHORIZED%,status.not.ilike.%AUTHORIZED%');
     }
     if (filters.state) {
-      query = query.ilike('physical_address', `%${filters.state}%`);
+      // Match state after the comma in address (e.g., ", OH 43015")
+      const states = filters.state.split('|');
+      const stateOrConditions = states.map(s => `physical_address.ilike.%, ${s} %`).join(',');
+      query = query.or(stateOrConditions);
     }
     if (filters.hasEmail === 'true') {
       query = query.not('email', 'is', null).neq('email', '');
@@ -215,14 +235,6 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
 
     // ── Ordering & limit ──────────────────────────────────────────────────
     query = query.order('created_at', { ascending: false });
-
-    const isFiltered = Object.keys(filters).some(k => {
-      const key = k as keyof CarrierFilters;
-      const val = filters[key];
-      if (key === 'limit') return false;
-      if (Array.isArray(val)) return val.length > 0;
-      return val !== undefined && val !== '';
-    });
 
     // When filters are active, return all matching records (no cap)
     // When no filters, return 200 default records
