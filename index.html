@@ -29,10 +29,68 @@
       }
     </script>
     <style>
-      body {
+      /* Dark mode (default) */
+      body.dark, body {
         background-color: #0F172A;
         color: #F8FAFC;
       }
+      
+      /* Light mode */
+      body.light {
+        background-color: #FFFFFF;
+        color: #1E293B;
+      }
+      
+      /* Smooth transitions */
+      body {
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      
+      /* Light mode overrides for key elements */
+      .light .bg-slate-950 {
+        background-color: #FFFFFF;
+      }
+      
+      .light .bg-slate-900 {
+        background-color: #F1F5F9;
+      }
+      
+      .light .bg-slate-800 {
+        background-color: #E2E8F0;
+      }
+      
+      .light .bg-slate-800\/50 {
+        background-color: rgba(226, 232, 240, 0.5);
+      }
+      
+      .light .text-slate-200 {
+        color: #1E293B;
+      }
+      
+      .light .text-slate-400 {
+        color: #64748B;
+      }
+      
+      .light .text-white {
+        color: #1E293B;
+      }
+      
+      .light .border-slate-800 {
+        border-color: #E2E8F0;
+      }
+      
+      .light .hover\:bg-slate-800:hover {
+        background-color: #E2E8F0;
+      }
+      
+      .light .hover\:text-white:hover {
+        color: #1E293B;
+      }
+      
+      .light .bg-indigo-600\/10 {
+        background-color: rgba(99, 102, 241, 0.1);
+      }
+      
       /* Custom scrollbar for terminal look */
       .scrollbar-hide::-webkit-scrollbar {
           display: none;
