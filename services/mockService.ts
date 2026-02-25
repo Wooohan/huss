@@ -4,8 +4,7 @@ import { fetchCarrierFromBackend, fetchSafetyFromBackend, fetchInsuranceFromBack
 // === HELPER FUNCTIONS ===
 const cleanText = (text: string | null | undefined): string => {
   if (!text) return '';
-  // FIX: Added \n replacement to merge multi-line addresses (City/State/Zip) into one string
-  return text.replace(/\u00a0/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
 const cfDecodeEmail = (encoded: string): string => {
@@ -26,12 +25,8 @@ const findValueByLabel = (doc: Document, label: string): string => {
   const ths = Array.from(doc.querySelectorAll('th'));
   const targetTh = ths.find(th => cleanText(th.textContent).includes(label));
   if (targetTh && targetTh.nextElementSibling) {
-    // FIX 1: Cast to HTMLElement so Vercel build recognizes .innerText
-    const nextTd = targetTh.nextElementSibling as HTMLElement;
-    
-    // FIX 2: Use .innerText instead of .childNodes[0] 
-    // This grabs the text AFTER the <br> tag (the City, State, and Zip)
-    const val = nextTd.innerText || nextTd.textContent;
+    const nextTd = targetTh.nextElementSibling;
+    const val = nextTd.childNodes[0]?.textContent || nextTd.textContent;
     return cleanText(val);
   }
   return '';
@@ -222,4 +217,107 @@ export const scrapeRealCarrier = async (mcNumber: string, useProxy: boolean): Pr
   return carrier;
 };
 
-// ... Rest of the code (InsuranceData, downloadCSV, Mock Data) stays identical ...
+export const fetchInsuranceData = async (dot: string): Promise<{policies: InsurancePolicy[], raw: any}> => {
+  // Try backend first
+  const backendResult = await fetchInsuranceFromBackend(dot);
+  if (backendResult) {
+    return backendResult;
+  }
+
+  // Fallback to old proxy method
+  const url = `https://searchcarriers.com/company/${dot}/insurances`;
+  const result = await fetchUrl(url, true); 
+
+  const extractedPolicies: InsurancePolicy[] = [];
+  const rawData = result?.data || (Array.isArray(result) ? result : []);
+  
+  if (Array.isArray(rawData)) {
+    rawData.forEach((p: any) => {
+      const carrier = p.name_company || p.insurance_company || p.insurance_company_name || p.company_name || 'NOT SPECIFIED';
+      const policyNumber = p.policy_no || p.policy_number || p.pol_num || 'N/A';
+      const effectiveDate = p.effective_date ? p.effective_date.split(' ')[0] : 'N/A';
+
+      let coverage = p.max_cov_amount || p.coverage_to || p.coverage_amount || 'N/A';
+      if (coverage !== 'N/A' && !isNaN(Number(coverage))) {
+        const num = Number(coverage);
+        if (num < 10000 && num > 0) {
+          coverage = `$${(num * 1000).toLocaleString()}`;
+        } else {
+          coverage = `$${num.toLocaleString()}`;
+        }
+      }
+
+      let type = (p.ins_type_code || 'N/A').toString();
+      if (type === '1') type = 'BI&PD';
+      else if (type === '2') type = 'CARGO';
+      else if (type === '3') type = 'BOND';
+
+      let iClass = (p.ins_class_code || 'N/A').toString().toUpperCase();
+      if (iClass === 'P') iClass = 'PRIMARY';
+      else if (iClass === 'E') iClass = 'EXCESS';
+
+      extractedPolicies.push({
+        dot,
+        carrier: carrier.toString().toUpperCase(),
+        policyNumber: policyNumber.toString().toUpperCase(),
+        effectiveDate,
+        coverageAmount: coverage.toString(),
+        type: type.toUpperCase(),
+        class: iClass
+      });
+    });
+  }
+
+  return { policies: extractedPolicies, raw: result };
+};
+
+export const downloadCSV = (data: CarrierData[]) => {
+  const headers = ['MC', 'DOT', 'Legal Name', 'Email', 'Phone', 'Status', 'Physical Address', 'MCS-150 Date'];
+  const csvRows = data.map(row => [
+    row.mcNumber,
+    row.dotNumber,
+    `"${row.legalName.replace(/"/g, '""')}"`,
+    row.email,
+    row.phone,
+    `"${row.status.replace(/"/g, '""')}"`,
+    `"${row.physicalAddress.replace(/"/g, '""')}"`,
+    row.mcs150Date
+  ]);
+  const csvContent = [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `carriers_batch_${Date.now()}.csv`;
+  link.click();
+};
+
+export const MOCK_USERS: User[] = [
+  { id: '1', name: 'Admin User', email: 'wooohan3@gmail.com', role: 'admin', plan: 'Enterprise', dailyLimit: 100000, recordsExtractedToday: 450, lastActive: 'Now', ipAddress: '192.168.1.1', isOnline: true, isBlocked: false }
+];
+
+export const BLOCKED_IPS: BlockedIP[] = [];
+
+export const generateMockCarrier = (mc: string, b: boolean): CarrierData => ({
+  mcNumber: mc,
+  dotNumber: (parseInt(mc)+1000000).toString(),
+  legalName: `Carrier ${mc} Logistics`,
+  dbaName: '',
+  entityType: b ? 'BROKER' : 'CARRIER',
+  status: 'AUTHORIZED',
+  email: 'info@carrier.com',
+  phone: '800-555-0199',
+  powerUnits: '12',
+  drivers: '14',
+  physicalAddress: '100 Logistics Way, Houston, TX 77002',
+  mailingAddress: '',
+  dateScraped: '2024-01-01',
+  mcs150Date: '2024-01-01',
+  mcs150Mileage: '120,000 (2023)',
+  operationClassification: [],
+  carrierOperation: [],
+  cargoCarried: [],
+  outOfServiceDate: '',
+  stateCarrierId: '',
+  dunsNumber: ''
+});
