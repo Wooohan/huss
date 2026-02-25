@@ -166,9 +166,11 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       query = query.or('status.ilike.%NOT AUTHORIZED%,status.not.ilike.%AUTHORIZED%');
     }
     if (filters.state) {
-      // Exact state matching after comma: ", MN " or ", MN"
+      // The user specified that the state code follows a comma in the address.
+      // Example: "1601 CLIFF RD E # 227 BURNSVILLE, MN 55337"
+      // We match ", MN" (with or without a space after the comma)
       const states = filters.state.split('|');
-      const stateOrConditions = states.map(s => `physical_address.ilike.%, ${s} %,physical_address.ilike.%, ${s}`).join(',');
+      const stateOrConditions = states.map(s => `physical_address.ilike.%, ${s}%,physical_address.ilike.%,${s}%`).join(',');
       query = query.or(stateOrConditions);
     }
     if (filters.hasEmail === 'true') {
