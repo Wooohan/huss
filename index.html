@@ -29,29 +29,29 @@
       }
     </script>
     <style>
-      /* ===== BASE DARK MODE (DEFAULT) ===== */
+      /* ===== DARK MODE (DEFAULT) ===== */
       body {
         background-color: #0F172A;
         color: #F8FAFC;
       }
 
-      /* ===== LIGHT MODE COMPLETE OVERRIDE ===== */
+      /* ===== LIGHT MODE - CLEAN WHITE ===== */
       html.light {
         background-color: #FFFFFF;
-        color: #0F172A;
+        color: #1F2937;
       }
 
       html.light body {
         background-color: #FFFFFF;
-        color: #0F172A;
+        color: #1F2937;
       }
 
-      /* Smooth transitions for all elements */
+      /* Smooth transitions */
       * {
         transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
       }
 
-      /* ===== LIGHT MODE: MAIN CONTAINERS ===== */
+      /* ===== LIGHT MODE: MAIN BACKGROUNDS ===== */
       html.light .bg-slate-950 {
         background-color: #FFFFFF !important;
       }
@@ -61,44 +61,44 @@
       }
 
       html.light .bg-slate-850 {
-        background-color: #F5F5F5 !important;
+        background-color: #F3F4F6 !important;
       }
 
       html.light .bg-slate-800 {
-        background-color: #F5F5F5 !important;
+        background-color: #F3F4F6 !important;
       }
 
       html.light .bg-slate-800\/50 {
-        background-color: rgba(245, 245, 245, 0.7) !important;
+        background-color: rgba(243, 244, 246, 0.8) !important;
       }
 
       html.light .bg-slate-800\/30 {
-        background-color: rgba(245, 245, 245, 0.5) !important;
+        background-color: rgba(243, 244, 246, 0.5) !important;
       }
 
       html.light .bg-slate-700 {
-        background-color: #F5F5F5 !important;
+        background-color: #F3F4F6 !important;
       }
 
-      /* ===== LIGHT MODE: TEXT COLORS ===== */
+      /* ===== LIGHT MODE: TEXT - KEEP WHITE WHERE NEEDED ===== */
+      html.light .text-white {
+        color: #FFFFFF !important;
+      }
+
       html.light .text-slate-200 {
-        color: #0F172A !important;
+        color: #FFFFFF !important;
       }
 
       html.light .text-slate-300 {
-        color: #1F2937 !important;
+        color: #E5E7EB !important;
       }
 
       html.light .text-slate-400 {
-        color: #4B5563 !important;
+        color: #6B7280 !important;
       }
 
       html.light .text-slate-500 {
         color: #6B7280 !important;
-      }
-
-      html.light .text-white {
-        color: #0F172A !important;
       }
 
       html.light .text-gray-400 {
@@ -124,32 +124,38 @@
 
       /* ===== LIGHT MODE: HOVER STATES ===== */
       html.light .hover\:bg-slate-800:hover {
-        background-color: #F0F0F0 !important;
+        background-color: #E5E7EB !important;
       }
 
       html.light .hover\:bg-slate-700:hover {
-        background-color: #F0F0F0 !important;
+        background-color: #E5E7EB !important;
       }
 
       html.light .hover\:text-white:hover {
-        color: #0F172A !important;
+        color: #FFFFFF !important;
       }
 
       html.light .hover\:text-slate-200:hover {
-        color: #0F172A !important;
+        color: #FFFFFF !important;
       }
 
-      html.light .hover\:text-slate-300:hover {
-        color: #0F172A !important;
+      /* ===== LIGHT MODE: INDIGO BUTTONS & ACCENTS ===== */
+      html.light .bg-indigo-600 {
+        background-color: #4F46E5 !important;
+        color: #FFFFFF !important;
       }
 
-      /* ===== LIGHT MODE: INDIGO ACCENTS ===== */
+      html.light .bg-indigo-500 {
+        background-color: #6366F1 !important;
+        color: #FFFFFF !important;
+      }
+
       html.light .bg-indigo-600\/10 {
-        background-color: rgba(79, 70, 229, 0.08) !important;
+        background-color: rgba(79, 70, 229, 0.1) !important;
       }
 
       html.light .bg-indigo-600\/20 {
-        background-color: rgba(79, 70, 229, 0.12) !important;
+        background-color: rgba(79, 70, 229, 0.15) !important;
       }
 
       html.light .text-indigo-400 {
@@ -164,18 +170,10 @@
         color: #6366F1 !important;
       }
 
-      html.light .bg-indigo-500 {
-        background-color: #6366F1 !important;
-      }
-
-      html.light .bg-indigo-600 {
-        background-color: #4F46E5 !important;
-      }
-
-      /* ===== LIGHT MODE: INPUTS & FORMS ===== */
+      /* ===== LIGHT MODE: INPUTS ===== */
       html.light input {
         background-color: #FFFFFF !important;
-        color: #0F172A !important;
+        color: #1F2937 !important;
         border-color: #D1D5DB !important;
       }
 
@@ -185,37 +183,25 @@
 
       html.light input:focus {
         background-color: #FFFFFF !important;
-        color: #0F172A !important;
+        color: #1F2937 !important;
         border-color: #6366F1 !important;
         outline: none;
       }
 
-      html.light textarea {
-        background-color: #FFFFFF !important;
-        color: #0F172A !important;
-        border-color: #D1D5DB !important;
-      }
-
-      html.light textarea::placeholder {
-        color: #9CA3AF !important;
-      }
-
-      /* ===== LIGHT MODE: BUTTONS ===== */
+      /* ===== LIGHT MODE: BUTTONS WITH TEXT ===== */
       html.light button {
         transition: all 0.2s ease;
       }
 
-      html.light .bg-indigo-500:hover {
-        background-color: #4F46E5 !important;
-      }
-
-      html.light .bg-indigo-600:hover {
-        background-color: #4338CA !important;
+      html.light .bg-indigo-500 button,
+      html.light button.bg-indigo-500,
+      html.light button.bg-indigo-600 {
+        color: #FFFFFF !important;
       }
 
       /* ===== LIGHT MODE: STATUS BADGES ===== */
       html.light .bg-green-500\/20 {
-        background-color: rgba(34, 197, 94, 0.12) !important;
+        background-color: rgba(34, 197, 94, 0.15) !important;
       }
 
       html.light .text-green-300 {
@@ -223,19 +209,19 @@
       }
 
       html.light .bg-red-500\/20 {
-        background-color: rgba(239, 68, 68, 0.12) !important;
+        background-color: rgba(239, 68, 68, 0.15) !important;
       }
 
       html.light .text-red-300 {
-        color: #EF4444 !important;
+        color: #DC2626 !important;
       }
 
       html.light .bg-yellow-500\/20 {
-        background-color: rgba(234, 179, 8, 0.12) !important;
+        background-color: rgba(234, 179, 8, 0.15) !important;
       }
 
       html.light .text-yellow-300 {
-        color: #FBBF24 !important;
+        color: #D97706 !important;
       }
 
       /* ===== LIGHT MODE: TABLES ===== */
@@ -262,7 +248,7 @@
       }
 
       html.light td {
-        color: #0F172A !important;
+        color: #1F2937 !important;
         border-color: #E5E7EB !important;
       }
 
@@ -290,18 +276,9 @@
         background-color: #9CA3AF !important;
       }
 
-      /* ===== LIGHT MODE: CARDS & PANELS ===== */
-      html.light .rounded-xl {
-        background-color: #FFFFFF !important;
-      }
-
-      html.light .shadow-lg {
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-      }
-
-      /* ===== LIGHT MODE: BADGES ===== */
+      /* ===== LIGHT MODE: BADGES WITH INDIGO ===== */
       html.light .bg-indigo-500\/20 {
-        background-color: rgba(99, 102, 241, 0.12) !important;
+        background-color: rgba(99, 102, 241, 0.15) !important;
       }
 
       html.light .text-indigo-200 {
@@ -309,31 +286,31 @@
       }
 
       html.light .bg-red-500\/20 {
-        background-color: rgba(239, 68, 68, 0.12) !important;
+        background-color: rgba(239, 68, 68, 0.15) !important;
       }
 
       html.light .text-red-200 {
-        color: #EF4444 !important;
+        color: #DC2626 !important;
       }
 
-      /* ===== LIGHT MODE: SPECIAL ELEMENTS ===== */
+      /* ===== LIGHT MODE: SPECIAL - KEEP DARK TEXT ON LIGHT ===== */
+      html.light .text-slate-200 {
+        color: #FFFFFF !important;
+      }
+
+      html.light .text-slate-300 {
+        color: #E5E7EB !important;
+      }
+
+      /* ===== LIGHT MODE: GRADIENT TEXT ===== */
       html.light .bg-gradient-to-r {
-        background-image: linear-gradient(to right, #6366F1, #4F46E5) !important;
+        background: linear-gradient(to right, #6366F1, #4F46E5) !important;
       }
 
       html.light .bg-clip-text {
         background-clip: text;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-      }
-
-      html.light .text-transparent {
-        color: transparent !important;
-      }
-
-      /* ===== LIGHT MODE: MODALS & DIALOGS ===== */
-      html.light .bg-opacity-50 {
-        background-color: rgba(0, 0, 0, 0.3) !important;
       }
 
       /* ===== CUSTOM SCROLLBAR HIDE ===== */
@@ -344,23 +321,6 @@
       .scrollbar-hide {
         -ms-overflow-style: none;
         scrollbar-width: none;
-      }
-
-      /* ===== DARK MODE SPECIFIC ===== */
-      html.dark .bg-slate-950 {
-        background-color: #020617 !important;
-      }
-
-      html.dark .bg-slate-900 {
-        background-color: #0F172A !important;
-      }
-
-      html.dark .text-slate-200 {
-        color: #F8FAFC !important;
-      }
-
-      html.dark .text-white {
-        color: #F8FAFC !important;
       }
     </style>
   <script type="importmap">
