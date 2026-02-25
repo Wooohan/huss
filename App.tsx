@@ -12,6 +12,7 @@ import { ViewState, User, CarrierData } from './types';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { MOCK_USERS } from './services/mockService';
 import { fetchCarriersFromSupabase, CarrierFilters } from './services/supabaseClient';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Extracted Settings component to keep the main App clean.
 const SettingsPage: React.FC = () => (
@@ -168,7 +169,8 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
+    <ThemeProvider>
+      <div className="flex min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 dark:bg-slate-950 dark:text-slate-200 light:bg-white light:text-slate-900 transition-colors duration-300">
       <Sidebar 
         currentView={currentView} 
         setCurrentView={handleViewChange} 
@@ -180,7 +182,8 @@ const App: React.FC = () => {
         <div className="absolute top-0 left-0 w-full h-96 bg-indigo-600/10 blur-[100px] pointer-events-none rounded-full -translate-y-1/2"></div>
         {renderContent()}
       </main>
-    </div>
+      </div>
+    </ThemeProvider>
   );
 };
 
