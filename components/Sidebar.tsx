@@ -1,6 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Truck, CreditCard, Settings, Terminal, LogOut, ShieldAlert, Database, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Truck, CreditCard, Settings, Terminal, LogOut, ShieldAlert, Database, ShieldCheck, Sun, Moon } from 'lucide-react';
 import { ViewState, User } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -11,6 +12,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, user, onLogout }) => {
   const isAdmin = user.role === 'admin';
+  const { theme, toggleTheme } = useTheme();
 
   // Define all navigation items
   const allNavItems = [
@@ -76,6 +78,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, u
              <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">{user.plan}</span>
              {user.role === 'admin' && <span className="text-xs bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full">Admin</span>}
           </div>
+        </div>
+        <div className="flex gap-2 mb-3">
+          <button 
+            onClick={toggleTheme}
+            className="flex items-center justify-center gap-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg w-full transition-all duration-200"
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
+            <span className="text-sm">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
         </div>
         <button 
           onClick={onLogout}
