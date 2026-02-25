@@ -4,24 +4,42 @@ import { fetchCarrierFromBackend, fetchSafetyFromBackend, fetchInsuranceFromBack
 // === HELPER FUNCTIONS ===
 
 const cleanText = (text: string | null | undefined): string => {
+
   if (!text) return '';
-  // FIX: Also replace newlines (\n) with spaces so City/State/Zip stay on one line
-  return text.replace(/\u00a0/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+
 };
 
+
+
 const cfDecodeEmail = (encoded: string): string => {
+
   try {
+
     let email = "";
+
     const r = parseInt(encoded.substr(0, 2), 16);
+
     for (let n = 2; n < encoded.length; n += 2) {
+
       const c = parseInt(encoded.substr(n, 2), 16) ^ r;
+
       email += String.fromCharCode(c);
+
     }
+
     return email;
+
   } catch (e) {
+
     return "";
+
   }
+
 };
+
+
 
 const findValueByLabel = (doc: Document, label: string): string => {
   const ths = Array.from(doc.querySelectorAll('th'));
