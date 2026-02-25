@@ -2,60 +2,23 @@ import { CarrierData, User, InsurancePolicy, BasicScore, OosRate, BlockedIP } fr
 import { fetchCarrierFromBackend, fetchSafetyFromBackend, fetchInsuranceFromBackend } from './backendService';
 
 // === HELPER FUNCTIONS ===
-
 const cleanText = (text: string | null | undefined): string => {
-
   if (!text) return '';
-
   return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
-
 };
-
-
 
 const cfDecodeEmail = (encoded: string): string => {
-
   try {
-
     let email = "";
-
     const r = parseInt(encoded.substr(0, 2), 16);
-
     for (let n = 2; n < encoded.length; n += 2) {
-
       const c = parseInt(encoded.substr(n, 2), 16) ^ r;
-
       email += String.fromCharCode(c);
-
     }
-
     return email;
-
   } catch (e) {
-
     return "";
-
   }
-
-};
-
-
-
-const findValueByLabel = (doc: Document, label: string): string => {
-  const ths = Array.from(doc.querySelectorAll('th'));
-  const targetTh = ths.find(th => cleanText(th.textContent).includes(label));
-  
-  if (targetTh && targetTh.nextElementSibling) {
-    const nextTd = targetTh.nextElementSibling as HTMLElement;
-    
-    // FIX: Removed .childNodes[0]. 
-    // Using .innerText captures BOTH the street and the City/State/Zip 
-    // that SAFER puts after the <br> tag.
-    const val = nextTd.innerText || nextTd.textContent; 
-    
-    return cleanText(val);
-  }
-  return '';
 };
 
 const findValueByLabel = (doc: Document, label: string): string => {
