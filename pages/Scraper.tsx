@@ -121,7 +121,6 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onNewCarr
              setScrapedData(prev => [...prev, newData!]);
              successfulResults.push(newData!);
              
-             // Save to Supabase
              const saveResult = await saveCarrierToSupabase(newData!);
              if (saveResult.success) {
                setDbSaveCount(prev => prev + 1);
@@ -186,17 +185,17 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onNewCarr
       {showUpgradeModal && (
         <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-800 border border-slate-700 p-8 rounded-2xl max-w-md text-center shadow-2xl animate-in zoom-in duration-200">
-             <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">
-                <Lock size={32} />
-             </div>
-             <h2 className="text-2xl font-bold text-white mb-2">Daily Limit Reached</h2>
-             <p className="text-slate-400 mb-6">
-               You've hit your limit of {user.dailyLimit.toLocaleString()} records. Upgrade your plan to extract unlimited data.
-             </p>
-             <div className="flex gap-4 justify-center">
-               <button onClick={() => setShowUpgradeModal(false)} className="px-4 py-2 text-slate-400 hover:text-white">Close</button>
-               <button onClick={onUpgrade} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold">View Plans</button>
-             </div>
+              <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-400">
+                 <Lock size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Daily Limit Reached</h2>
+              <p className="text-slate-400 mb-6">
+                You've hit your limit of {user.dailyLimit.toLocaleString()} records. Upgrade your plan to extract unlimited data.
+              </p>
+              <div className="flex gap-4 justify-center">
+                <button onClick={() => setShowUpgradeModal(false)} className="px-4 py-2 text-slate-400 hover:text-white">Close</button>
+                <button onClick={onUpgrade} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold">View Plans</button>
+              </div>
           </div>
         </div>
       )}
@@ -326,7 +325,7 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onNewCarr
                 </label>
                 
                 <div className="bg-slate-900 p-3 rounded-lg border border-slate-700 opacity-50">
-                   <label className="flex items-center justify-between cursor-pointer">
+                    <label className="flex items-center justify-between cursor-pointer">
                         <span className="text-xs text-slate-400">Mock Mode (Simulation)</span>
                         <input 
                           type="checkbox" 
@@ -423,6 +422,8 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onNewCarr
                   <tr>
                     <th className="p-3 font-medium text-xs uppercase tracking-wider">MC#</th>
                     <th className="p-3 font-medium text-xs uppercase tracking-wider">Legal Name</th>
+                    {/* FIXED: Added Address Header */}
+                    <th className="p-3 font-medium text-xs uppercase tracking-wider">Address</th>
                     <th className="p-3 font-medium text-xs uppercase tracking-wider">Type</th>
                     <th className="p-3 font-medium text-xs uppercase tracking-wider">Status</th>
                     <th className="p-3 font-medium text-xs uppercase tracking-wider">Email</th>
@@ -432,7 +433,7 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onNewCarr
                 <tbody className="divide-y divide-slate-800">
                   {scrapedData.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-600">
+                      <td colSpan={7} className="p-8 text-center text-slate-600">
                         No data extracted yet.
                       </td>
                     </tr>
@@ -441,6 +442,10 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onNewCarr
                       <tr key={i} className="hover:bg-slate-700/50 transition-colors">
                         <td className="p-3 font-mono text-white">{row.mcNumber}</td>
                         <td className="p-3 truncate max-w-[150px]" title={row.legalName}>{row.legalName}</td>
+                        {/* FIXED: Display full physical address */}
+                        <td className="p-3 truncate max-w-[200px] text-xs" title={row.physicalAddress || row.address}>
+                          {row.physicalAddress || row.address || '-'}
+                        </td>
                         <td className="p-3">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${row.entityType.includes('BROKER') ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}`}>
                             {row.entityType || 'UNKNOWN'}
