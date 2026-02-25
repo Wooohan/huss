@@ -166,9 +166,9 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       query = query.or('status.ilike.%NOT AUTHORIZED%,status.not.ilike.%AUTHORIZED%');
     }
     if (filters.state) {
-      // Improved state matching: check for state code surrounded by spaces or at the end of the address
+      // Exact state matching after comma: ", MN " or ", MN"
       const states = filters.state.split('|');
-      const stateOrConditions = states.map(s => `physical_address.ilike.% ${s} %,physical_address.ilike.%, ${s} %,physical_address.ilike.% ${s}`).join(',');
+      const stateOrConditions = states.map(s => `physical_address.ilike.%, ${s} %,physical_address.ilike.%, ${s}`).join(',');
       query = query.or(stateOrConditions);
     }
     if (filters.hasEmail === 'true') {
@@ -180,21 +180,6 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       query = query.contains('carrier_operation', ['BOC-3']);
     } else if (filters.hasBoc3 === 'false') {
       query = query.not('carrier_operation', 'cs', '{"BOC-3"}');
-    }
-
-    // Years in Business (calculated from mcs150_date)
-    if (filters.yearsInBusinessMin !== undefined || filters.yearsInBusinessMax !== undefined) {
-      const now = new Date();
-      if (filters.yearsInBusinessMin !== undefined) {
-        const minDate = new Date();
-        minDate.setFullYear(now.getFullYear() - filters.yearsInBusinessMin);
-        query = query.lte('mcs150_date', minDate.toISOString().split('T')[0]);
-      }
-      if (filters.yearsInBusinessMax !== undefined) {
-        const maxDate = new Date();
-        maxDate.setFullYear(now.getFullYear() - filters.yearsInBusinessMax);
-        query = query.gte('mcs150_date', maxDate.toISOString().split('T')[0]);
-      }
     }
 
     // ── Carrier Operation filters ──────────────────────────────────────────
@@ -257,7 +242,7 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       return [];
     }
 
-    return (data || []).map((record: any) => ({
+    let results = (data || []).map((record: any) => ({
       mcNumber: record.mc_number,
       dotNumber: record.dot_number,
       legalName: record.legal_name,
@@ -268,7 +253,7 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       phone: record.phone,
       powerUnits: record.power_units,
       drivers: record.drivers,
-      nonCmvUnits: record.non_cmv_units,
+      non_cmv_units: record.non_cmv_units,
       physicalAddress: record.physical_address,
       mailingAddress: record.mailing_address,
       dateScraped: record.date_scraped,
@@ -281,11 +266,33 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       stateCarrierId: record.state_carrier_id,
       dunsNumber: record.duns_number,
       safetyRating: record.safety_rating,
-      safety_rating_date: record.safety_rating_date,
+      safetyRatingDate: record.safety_rating_date,
       basicScores: record.basic_scores,
       oosRates: record.oos_rates,
       insurancePolicies: record.insurance_policies,
     }));
+
+    // Post-fetch filtering for Years in Business (since mcs150_date is a string in various formats)
+    if (filters.yearsInBusinessMin !== undefined || filters.yearsInBusinessMax !== undefined) {
+      results = results.filter(carrier => {
+        if (!carrier.mcs150Date || carrier.mcs150Date === 'N/A') return false;
+        try {
+          const date = new Date(carrier.mcs150Date);
+          if (isNaN(date.getTime())) return false;
+          const diffMs = Date.now() - date.getTime();
+          const ageDate = new Date(diffMs);
+          const years = Math.abs(ageDate.getUTCFullYear() - 1970);
+          
+          if (filters.yearsInBusinessMin !== undefined && years < filters.yearsInBusinessMin) return false;
+          if (filters.yearsInBusinessMax !== undefined && years > filters.yearsInBusinessMax) return false;
+          return true;
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+
+    return results;
   } catch (err) {
     console.error('Exception fetching from Supabase:', err);
     return [];
