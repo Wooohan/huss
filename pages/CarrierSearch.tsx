@@ -44,7 +44,7 @@ const CARGO_TYPES = [
   'Construction','Water Well','Other'
 ];
 
-const INSURANCE_REQUIRED_TYPES = ['BIPD','CARGO','BOND'];
+const INSURANCE_REQUIRED_TYPES = ['BI&PD','CARGO','BOND'];
 
 // Helper to calculate years in business from MCS-150 date
 const calculateYearsInBusiness = (mcs150Date: string | undefined): number | null => {
