@@ -150,15 +150,6 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       return val !== undefined && val !== '';
     });
 
-    // If searching/filtering, exclude records with null values in key fields
-    if (isFiltered) {
-      query = query
-        .not('operation_classification', 'is', null)
-        .not('carrier_operation', 'is', null)
-        .not('cargo_carried', 'is', null)
-        .not('insurance_policies', 'is', null);
-    }
-
     // ── Motor Carrier filters ──────────────────────────────────────────────
     if (filters.mcNumber) {
       query = query.ilike('mc_number', `%${filters.mcNumber}%`);
@@ -175,9 +166,9 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       query = query.or('status.ilike.%NOT AUTHORIZED%,status.not.ilike.%AUTHORIZED%');
     }
     if (filters.state) {
-      // Match state after the comma in address (e.g., ", OH 43015")
+      // Improved state matching: check for state code surrounded by spaces or at the end of the address
       const states = filters.state.split('|');
-      const stateOrConditions = states.map(s => `physical_address.ilike.%, ${s} %`).join(',');
+      const stateOrConditions = states.map(s => `physical_address.ilike.% ${s} %,physical_address.ilike.%, ${s} %,physical_address.ilike.% ${s}`).join(',');
       query = query.or(stateOrConditions);
     }
     if (filters.hasEmail === 'true') {
@@ -185,11 +176,25 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
     } else if (filters.hasEmail === 'false') {
       query = query.or('email.is.null,email.eq.');
     }
-    // hasBoc3 – stored in carrier_operation or a dedicated column; filter by keyword in arrays
     if (filters.hasBoc3 === 'true') {
       query = query.contains('carrier_operation', ['BOC-3']);
     } else if (filters.hasBoc3 === 'false') {
       query = query.not('carrier_operation', 'cs', '{"BOC-3"}');
+    }
+
+    // Years in Business (calculated from mcs150_date)
+    if (filters.yearsInBusinessMin !== undefined || filters.yearsInBusinessMax !== undefined) {
+      const now = new Date();
+      if (filters.yearsInBusinessMin !== undefined) {
+        const minDate = new Date();
+        minDate.setFullYear(now.getFullYear() - filters.yearsInBusinessMin);
+        query = query.lte('mcs150_date', minDate.toISOString().split('T')[0]);
+      }
+      if (filters.yearsInBusinessMax !== undefined) {
+        const maxDate = new Date();
+        maxDate.setFullYear(now.getFullYear() - filters.yearsInBusinessMax);
+        query = query.gte('mcs150_date', maxDate.toISOString().split('T')[0]);
+      }
     }
 
     // ── Carrier Operation filters ──────────────────────────────────────────
@@ -207,7 +212,6 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
     } else if (filters.hazmat === 'false') {
       query = query.not('cargo_carried', 'cs', '{"Hazardous Materials"}');
     }
-    // Power units (stored as text, cast for comparison)
     if (filters.powerUnitsMin !== undefined) {
       query = query.gte('power_units', filters.powerUnitsMin.toString());
     }
@@ -222,8 +226,12 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
     }
 
     // ── Insurance filters ──────────────────────────────────────────────────
+    if (filters.insuranceRequired && filters.insuranceRequired.length > 0) {
+      // Filter by insurance type in the insurance_policies JSONB array
+      const insuranceOrConditions = filters.insuranceRequired.map(type => `insurance_policies.cs.[{"type": "${type}"}]`).join(',');
+      query = query.or(insuranceOrConditions);
+    }
     if (filters.bipdOnFile === '1') {
-      // Has BIPD insurance: insurance_policies contains a BI&PD type entry
       query = query.not('insurance_policies', 'is', null);
     }
     if (filters.cargoOnFile === '1') {
@@ -236,14 +244,11 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
     // ── Ordering & limit ──────────────────────────────────────────────────
     query = query.order('created_at', { ascending: false });
 
-    // When filters are active, return all matching records (no cap)
-    // When no filters, return 200 default records
     if (!isFiltered) {
       query = query.limit(200);
     } else if (filters.limit) {
       query = query.limit(filters.limit);
     }
-    // else: no limit – return all matching records
 
     const { data, error } = await query;
 
@@ -252,7 +257,6 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       return [];
     }
 
-    // Convert snake_case back to camelCase for frontend
     return (data || []).map((record: any) => ({
       mcNumber: record.mc_number,
       dotNumber: record.dot_number,
@@ -277,7 +281,7 @@ export const fetchCarriersFromSupabase = async (filters: CarrierFilters = {}): P
       stateCarrierId: record.state_carrier_id,
       dunsNumber: record.duns_number,
       safetyRating: record.safety_rating,
-      safetyRatingDate: record.safety_rating_date,
+      safety_rating_date: record.safety_rating_date,
       basicScores: record.basic_scores,
       oosRates: record.oos_rates,
       insurancePolicies: record.insurance_policies,
