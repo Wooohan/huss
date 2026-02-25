@@ -46,6 +46,20 @@ const CARGO_TYPES = [
 
 const INSURANCE_REQUIRED_TYPES = ['BIPD','CARGO','BOND'];
 
+// Helper to calculate years in business from MCS-150 date
+const calculateYearsInBusiness = (mcs150Date: string | undefined): number | null => {
+  if (!mcs150Date || mcs150Date === 'N/A') return null;
+  try {
+    const date = new Date(mcs150Date);
+    if (isNaN(date.getTime())) return null;
+    const diffMs = Date.now() - date.getTime();
+    const ageDate = new Date(diffMs);
+    return Math.abs(ageDate.getUTCFullYear() - 1970);
+  } catch (e) {
+    return null;
+  }
+};
+
 // Simple multi-select dropdown component
 const MultiSelect: React.FC<{
   options: string[];
@@ -603,7 +617,14 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onSearch
                   </h3>
                   <div className="space-y-3">
                     <div className="bg-slate-900/50 p-3 rounded-2xl border border-slate-800 shadow-inner">
-                      <span className="text-[9px] text-slate-500 font-black uppercase block mb-1">MCS-150 Form Date</span>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="text-[9px] text-slate-500 font-black uppercase">MCS-150 Form Date</span>
+                        {calculateYearsInBusiness(selectedCarrier.mcs150Date) !== null && (
+                          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-tighter">
+                            {calculateYearsInBusiness(selectedCarrier.mcs150Date)} Years in Business
+                          </span>
+                        )}
+                      </div>
                       <span className="text-base font-black text-white">{selectedCarrier.mcs150Date || 'N/A'}</span>
                     </div>
                     <div className="bg-slate-900/50 p-3 rounded-2xl border border-slate-800 shadow-inner">
